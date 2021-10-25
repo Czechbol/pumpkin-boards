@@ -24,3 +24,69 @@ msgstr
 
 msgid Your score
 msgstr
+
+msgid User karma
+msgstr
+
+msgid Karma value
+msgstr
+
+msgid Karma given
+msgstr
+
+msgid Karma taken
+msgstr
+
+msgid I can only use Unicode emojis or emojis from this server.
+msgstr
+
+msgid This emoji does not have karma value.
+msgstr
+
+msgid Emoji karma
+msgstr
+
+msgid No emoji has karma value on this server.
+msgstr
+
+msgid Emojis with positive karma
+msgstr
+
+msgid Emojis with neutral karma
+msgstr
+
+msgid Emojis with negative karma
+msgstr
+
+msgid The value has been set.
+msgstr
+
+msgid Karma is disabled for this message.
+msgstr
+
+msgid Message karma
+msgstr
+
+msgid Total karma value of [the message]({link}) is {value} karma points.
+msgstr
+
+msgid **{user}** in #{channel}
+msgstr
+
+msgid Message content
+msgstr
+
+msgid Positive reactions
+msgstr
+
+msgid Negative reactions
+msgstr
+
+msgid Neutral reactions
+msgstr
+
+msgid {member} got {value} karma points.
+msgstr
+
+msgid Every member got {value} karma points
+msgstr
