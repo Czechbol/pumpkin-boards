@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 from typing import Optional, List, Tuple, Union
 
@@ -148,7 +149,94 @@ class Karma(commands.Cog):
     @karma_.command(name="vote")
     async def karma_vote(self, ctx, emoji: str = None):
         """Vote over emoji's karma value."""
-        pass
+        await utils.Discord.delete_message(ctx.message)
+
+        with contextlib.suppress(commands.EmojiNotFound):
+            emoji = await commands.EmojiConverter().convert(ctx, emoji)
+
+        if emoji is None:
+            voted_ids = [e.emoji_id for e in DiscordEmoji.get_all(ctx.guild.id)]
+            for guild_emoji in ctx.guild.emojis:
+                if guild_emoji.id not in voted_ids:
+                    emoji = guild_emoji
+                    break
+
+        if emoji is None:
+            await ctx.author.send(
+                _(ctx, "All server emojis have been assigned a karma value.")
+            )
+            return
+        emoji_name: str = getattr(emoji, "name", str(emoji))
+
+        message = (
+            _(ctx, "Karma vote over the value of {emoji} started.")
+            + "\n"
+            + _(ctx, "The vote will run for **{minutes}** minutes.")
+            + " "
+            + _(ctx, "Required minimum vote count is **{count}**.")
+        )
+        # TODO Make configurable
+        vote_message = await ctx.send(
+            message.format(emoji=str(emoji), minutes=120, count=10)
+        )
+
+        # Set the value to zero, so we can run this command multiple times
+        # without starting a vote over the same emoji over and over.
+        if type(emoji) is discord.Emoji:
+            DiscordEmoji.add(ctx.guild.id, emoji.id, 0)
+
+        await guild_log.info(
+            ctx.author, ctx.channel, f"Karma vote over emoji '{emoji_name}' started."
+        )
+
+        votes = {"🔼": 0, "0⃣": 0, "🔽": 0}
+        emoji_labels = {"🔼": "+1", "0⃣": "0", "🔽": "-1"}
+        for vote_option in votes.keys():
+            await vote_message.add_reaction(vote_option)
+
+        # TODO Make configurable
+        await asyncio.sleep(10)
+
+        # Fetch updated message with the votes
+        vote_message = await vote_message.channel.fetch_message(vote_message.id)
+        for reaction in vote_message.reactions:
+            votes[reaction.emoji] = reaction.count - 1
+
+        log_message: str = (
+            f"Karma vote over emoji '{emoji_name}' ended: "
+            + ", ".join(f"{v}x {emoji_labels[k]}" for k, v in votes.items())
+            + "."
+        )
+
+        result: Optional[int] = None
+        if votes["🔼"] > votes["0⃣"] and votes["🔼"] > votes["🔽"]:
+            result = 1
+        elif votes["0⃣"] > votes["🔽"] and votes["0⃣"] > votes["🔼"]:
+            result = 0
+        elif votes["🔽"] > votes["0⃣"] and votes["🔽"] > votes["🔼"]:
+            result = -1
+        else:
+            await guild_log.info(
+                ctx.author,
+                ctx.channel,
+                _(ctx, log_message + " Inconconclusive, aborted."),
+            )
+            await ctx.send(_(ctx, "Vote over {emoji} failed.").format(emoji=str(emoji)))
+            return
+
+        if type(emoji) is discord.Emoji:
+            DiscordEmoji.add(ctx.guild.id, emoji.id, result)
+        elif type(emoji) is str:
+            UnicodeEmoji.add(ctx.guild.id, emoji, result)
+
+        await guild_log.info(
+            ctx.author, ctx.channel, log_message + f" Setting to {result}."
+        )
+        await ctx.send(
+            _(ctx, "Karma value of {emoji} is **{value}**.").format(
+                emoji=str(emoji), value=result
+            )
+        )
 
     @karma_.command(name="set")
     async def karma_set(self, ctx, emoji: str, value: int):
@@ -161,6 +249,11 @@ class Karma(commands.Cog):
                 _(ctx, "I can only use Unicode emojis or emojis from this server.")
             )
             return
+
+        if value not in (-1, 0, 1):
+            await ctx.reply(
+                _(ctx, "I'll use the value, but usually they are only 1, 0 or -1.")
+            )
 
         if type(emoji) == discord.Emoji:
             DiscordEmoji.add(ctx.guild.id, emoji.id, value)

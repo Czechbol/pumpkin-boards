@@ -58,6 +58,27 @@ msgstr
 msgid Emojis with negative karma
 msgstr
 
+msgid All server emojis have been assigned a karma value.
+msgstr
+
+msgid Karma vote over the value of {emoji} started.
+msgstr
+
+msgid The vote will run for **{minutes}** minutes.
+msgstr
+
+msgid Required minimum vote count is **{count}**.
+msgstr
+
+msgid Vote over {emoji} failed.
+msgstr
+
+msgid Karma value of {emoji} is **{value}**.
+msgstr
+
+msgid I'll use the value, but usually they are only 1, 0 or -1.
+msgstr
+
 msgid The value has been set.
 msgstr
 
