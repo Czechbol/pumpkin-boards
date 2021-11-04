@@ -28,7 +28,7 @@ msgstr
 msgid User karma
 msgstr
 
-msgid Karma value
+msgid Total value
 msgstr
 
 msgid Karma given
@@ -44,6 +44,9 @@ msgid This emoji does not have karma value.
 msgstr
 
 msgid Emoji karma
+msgstr
+
+msgid Karma value
 msgstr
 
 msgid No emoji has karma value on this server.

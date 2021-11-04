@@ -28,8 +28,8 @@ msgstr Tvoje skóre
 msgid User karma
 msgstr Karma uživatele
 
-msgid Karma value
-msgstr Úroveň karmy
+msgid Total value
+msgstr Celková karma
 
 msgid Karma given
 msgstr Rozdaná karma
@@ -45,6 +45,9 @@ msgstr Tento emoji nemá karma hodnotu.
 
 msgid Emoji karma
 msgstr Karma emoji
+
+msgid Karma value
+msgstr Úroveň karmy
 
 msgid No emoji has karma value on this server.
 msgstr Na tomto serveru nemá žádný emoji karma hodnotu.

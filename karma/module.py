@@ -1,18 +1,17 @@
 import asyncio
 import contextlib
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 from emoji import UNICODE_EMOJI as _UNICODE_EMOJI
 
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from core import check, i18n, logger, utils
 from core import TranslationContext
 
 from .database import (
-    KarmaActionActor,
     KarmaMember,
     KarmaEmoji,
     UnicodeEmoji,
@@ -34,6 +33,93 @@ class Karma(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+        self.value_cache = {}
+        self.given_cache = {}
+        self.taken_cache = {}
+
+        self.karma_cache_write.start()
+
+    @tasks.loop(seconds=30.0)
+    async def karma_cache_loop(self) -> None:
+        """Save the karma values in given interval."""
+        value_cache = self.value_cache.copy()
+        self.value_cache = {}
+        given_cache = self.given_cache.copy()
+        self.given_cache = {}
+        taken_cache = self.taken_cache.copy()
+        self.taken_cache = {}
+
+        for (guild_id, member_id), delta in value_cache.items():
+            member = KarmaMember.get_or_add(guild_id, member_id)
+            member.value += delta
+            member.save()
+
+        for (guild_id, member_id), delta in given_cache.items():
+            member = KarmaMember.get_or_add(guild_id, member_id)
+            member.given += delta
+            member.save()
+
+        for (guild_id, member_id), delta in taken_cache.items():
+            member = KarmaMember.get_or_add(guild_id, member_id)
+            member.taken += delta
+            member.save()
+
+    async def karma_cache_check(self, reaction: discord.RawReactionActionEvent):
+        if reaction.emoji.is_custom_emoji():
+            emoji = DiscordEmoji.get(reaction.guild_id, reaction.emoji.id)
+        else:
+            emoji = UnicodeEmoji.get(reaction.guild_id, reaction.emoji.name)
+        emoji_value: int = getattr(emoji, "value", 0)
+
+        if emoji_value == 0:
+            return
+
+        message: discord.Message = await utils.Discord.get_message(
+            self.bot,
+            reaction.guild_id,
+            reaction.channel_id,
+            reaction.message_id,
+        )
+        if message.author.id == reaction.user_id:
+            return
+
+        message_author: Tuple[int, int] = (reaction.guild_id, message.author.id)
+        reaction_author: Tuple[int, int] = (reaction.guild_id, reaction.member.id)
+
+        return (message_author, reaction_author, emoji_value)
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, reaction: discord.RawReactionActionEvent):
+        """Handle added reactions."""
+        author_m, author_r, emoji_value = await self.karma_cache_check(reaction)
+
+        self.value_cache.setdefault(author_m, 0)
+        self.value_cache[author_m] += emoji_value
+
+        if emoji_value > 0:
+            self.given_cache.setdefault(author_r, 0)
+            self.given_cache[author_r] += emoji_value
+        else:
+            self.taken_cache.setdefault(author_r, 0)
+            self.taken_cache[author_r] += -emoji_value
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_remove(self, reaction: discord.RawReactionActionEvent):
+        """Handle removed reactions."""
+        author_m, author_r, emoji_value = await self.karma_cache_check(reaction)
+
+        self.value_cache.setdefault(author_m, 0)
+        self.value_cache[author_m] -= emoji_value
+
+        if emoji_value > 0:
+            self.given_cache.setdefault(author_r, 0)
+            self.given_cache[author_r] -= emoji_value
+        else:
+            self.taken_cache.setdefault(author_r, 0)
+            self.taken_cache[author_r] -= -emoji_value
+
+    #
+
     @commands.check(check.acl)
     @commands.group(name="karma")
     async def karma_(self, ctx):
@@ -54,7 +140,7 @@ class Karma(commands.Cog):
         )
 
         embed.add_field(
-            name=_(ctx, "Karma value"),
+            name=_(ctx, "Total value"),
             value=f"**{kmember.value}** (#{kmember.value_position})",
             inline=False,
         )
@@ -356,9 +442,9 @@ class Karma(commands.Cog):
     ):
         """Give some karma to multiple users."""
         for member in members:
-            KarmaMember.update(
-                ctx.guild.id, member.id, KarmaActionActor.RECEIVER, value
-            )
+            user = KarmaMember.get_or_add(ctx.guild.id, member.id)
+            user.value += value
+            user.save()
         reply: str
         if len(members) == 1:
             reply = _(ctx, "{member} got {value} karma points.").format(

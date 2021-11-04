@@ -20,11 +20,6 @@ class BoardType(Enum):
     given = 1
 
 
-class KarmaActionActor(Enum):
-    GIVER = 0
-    RECEIVER = 1
-
-
 class KarmaMember(database.base):
     __tablename__ = "boards_karma_members"
 
@@ -94,28 +89,6 @@ class KarmaMember(database.base):
         session.commit()
         return member
 
-    @staticmethod
-    def update(
-        guild_id: int, user_id: int, actor: KarmaActionActor, value: int
-    ) -> KarmaMember:
-        """Update member entry."""
-        member = KarmaMember.get(guild_id, user_id)
-        if not member:
-            member = KarmaMember.add(guild_id, user_id)
-
-        if value == 0:
-            return member
-
-        if actor == KarmaActionActor.RECEIVER:
-            member.value += value
-        elif actor == KarmaActionActor.GIVER and value > 0:
-            member.given += value
-        elif actor == KarmaActionActor.GIVER and value < 0:
-            member.taken += -value
-
-        session.commit()
-        return member
-
     @property
     def value_position(self) -> int:
         value = (
@@ -142,6 +115,9 @@ class KarmaMember(database.base):
             .one()
         )
         return value[0] + 1
+
+    def save(self) -> None:
+        session.commit()
 
     def __repr__(self) -> str:
         return (
