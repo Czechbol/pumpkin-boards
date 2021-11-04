@@ -1,12 +1,23 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Union
 
 from sqlalchemy import func
 from sqlalchemy import BigInteger, Column, Integer, String
 
 from database import database, session
+
+
+class BoardOrder(Enum):
+    ASC = 0
+    DESC = 1
+
+
+class BoardType(Enum):
+    taken = -1
+    value = 0
+    given = 1
 
 
 class KarmaActionActor(Enum):
@@ -38,6 +49,40 @@ class KarmaMember(database.base):
             .filter_by(guild_id=guild_id, user_id=user_id)
             .one_or_none()
         )
+        return query
+
+    @staticmethod
+    def get_count(guild_id: int) -> int:
+        count = (
+            session.query(func.count(KarmaMember.user_id))
+            .filter_by(guild_id=guild_id)
+            .scalar()
+        )
+
+        return count
+
+    @staticmethod
+    def get_some(
+        guild_id: int, board: BoardType, order: BoardOrder, limit: int, offset: int
+    ) -> List[KarmaMember]:
+        column = getattr(KarmaMember, board.name)
+
+        if order == BoardOrder.ASC:
+            order_by = column.asc()
+        elif order == BoardOrder.DESC:
+            order_by = column.desc()
+        else:
+            raise ValueError(f"Unsupported BoardOrder {order}.")
+
+        query = (
+            session.query(KarmaMember)
+            .filter_by(guild_id=guild_id)
+            .order_by(order_by)
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+
         return query
 
     @staticmethod

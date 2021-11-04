@@ -1,6 +1,6 @@
 import asyncio
 import contextlib
-from typing import Optional, List, Tuple, Union
+from typing import Optional, List
 
 from emoji import UNICODE_EMOJI as _UNICODE_EMOJI
 
@@ -9,6 +9,7 @@ import discord
 from discord.ext import commands
 
 from core import check, i18n, logger, utils
+from core import TranslationContext
 
 from .database import (
     KarmaActionActor,
@@ -17,6 +18,8 @@ from .database import (
     UnicodeEmoji,
     DiscordEmoji,
     IgnoredChannel,
+    BoardOrder,
+    BoardType,
 )
 
 UNICODE_EMOJI = _UNICODE_EMOJI["en"]
@@ -31,10 +34,12 @@ class Karma(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    @commands.check(check.acl)
     @commands.group(name="karma")
     async def karma_(self, ctx):
         await utils.Discord.send_help(ctx)
 
+    @commands.check(check.acl)
     @karma_.command(name="get")
     async def karma_get(self, ctx, member: Optional[discord.Member] = None):
         """Display karma information on some user."""
@@ -67,6 +72,7 @@ class Karma(commands.Cog):
 
         await ctx.reply(embed=embed)
 
+    @commands.check(check.acl)
     @karma_.command(name="emoji")
     async def karma_emoji(self, ctx, emoji: str):
         """Display karma information on emoji."""
@@ -102,6 +108,7 @@ class Karma(commands.Cog):
 
         await ctx.reply(embed=embed)
 
+    @commands.check(check.acl)
     @karma_.command(name="emojis")
     async def karma_emojis(self, ctx):
         """Display karma emojis on this server."""
@@ -146,6 +153,7 @@ class Karma(commands.Cog):
                 if line:
                     await ctx.send(line)
 
+    @commands.check(check.acl)
     @karma_.command(name="vote")
     async def karma_vote(self, ctx, emoji: str = None):
         """Vote over emoji's karma value."""
@@ -238,6 +246,7 @@ class Karma(commands.Cog):
             )
         )
 
+    @commands.check(check.acl)
     @karma_.command(name="set")
     async def karma_set(self, ctx, emoji: str, value: int):
         """Set emoji's karma value."""
@@ -262,6 +271,7 @@ class Karma(commands.Cog):
 
         await ctx.reply(_(ctx, "The value has been set."))
 
+    @commands.check(check.acl)
     @karma_.command(name="message")
     async def karma_message(self, ctx, message: discord.Message):
         """Display total message karma."""
@@ -339,6 +349,7 @@ class Karma(commands.Cog):
 
         await ctx.reply(embed=embed)
 
+    @commands.check(check.acl)
     @karma_.command(name="give")
     async def karma_give(
         self, ctx, members: commands.Greedy[discord.Member], value: int
@@ -366,25 +377,178 @@ class Karma(commands.Cog):
             f"{value} karma points added to " + ", ".join([m.name for m in members]),
         )
 
+    @commands.check(check.acl)
     @karma_.command(name="leaderboard")
     async def karma_leaderboard(self, ctx):
         """Display karma leaders."""
-        pass
+        embeds = Karma._create_embeds(
+            ctx=ctx,
+            title=_(ctx, "Karma leaderboard"),
+            description=_(ctx, "Score, descending"),
+            board=BoardType.value,
+            order=BoardOrder.DESC,
+        )
 
+        if not embeds:
+            await ctx.reply(_(ctx, "Karma data not yet available."))
+            return
+
+        scrollable = utils.ScrollableEmbed()
+        scrollable.from_iter(ctx, embeds)
+        await scrollable.scroll(ctx)
+
+    @commands.check(check.acl)
     @karma_.command(name="loserboard")
     async def karma_loserboard(self, ctx):
         """Display karma losers."""
-        pass
+        embeds = Karma._create_embeds(
+            ctx=ctx,
+            title=_(ctx, "Karma loserboard"),
+            description=_(ctx, "Score, ascending"),
+            board=BoardType.value,
+            order=BoardOrder.ASC,
+        )
 
+        if not embeds:
+            await ctx.reply(_(ctx, "Karma data not yet available."))
+            return
+
+        scrollable = utils.ScrollableEmbed()
+        scrollable.from_iter(ctx, embeds)
+        await scrollable.scroll(ctx)
+
+    @commands.check(check.acl)
     @karma_.command(name="givingboard")
     async def karma_givingboard(self, ctx):
         """Display karma givers."""
-        pass
+        embeds = Karma._create_embeds(
+            ctx=ctx,
+            title=_(ctx, "Karma givingboard"),
+            description=_(ctx, "Score, descending"),
+            board=BoardType.given,
+            order=BoardOrder.DESC,
+        )
 
+        if not embeds:
+            await ctx.reply(_(ctx, "Karma data not yet available."))
+            return
+
+        scrollable = utils.ScrollableEmbed()
+        scrollable.from_iter(ctx, embeds)
+        await scrollable.scroll(ctx)
+
+    @commands.check(check.acl)
     @karma_.command(name="takingboard")
     async def karma_takingboard(self, ctx):
-        """Display karma givers."""
-        pass
+        """Display karma takers."""
+        embeds = Karma._create_embeds(
+            ctx=ctx,
+            title=_(ctx, "Karma takingboard"),
+            description=_(ctx, "Score, descending"),
+            board=BoardType.taken,
+            order=BoardOrder.DESC,
+        )
+
+        if not embeds:
+            await ctx.reply(_(ctx, "Karma data not yet available."))
+            return
+
+        scrollable = utils.ScrollableEmbed()
+        scrollable.from_iter(ctx, embeds)
+        await scrollable.scroll(ctx)
+
+    #
+
+    @staticmethod
+    def _create_embeds(
+        *,
+        ctx: commands.Context,
+        title: str,
+        description: str,
+        board: BoardType,
+        order: BoardOrder,
+        item_count: int = 10,
+        page_count: int = 10,
+    ) -> List[discord.Embed]:
+        pages: List[discord.Embed] = []
+
+        author = KarmaMember.get(ctx.guild.id, ctx.author.id)
+        guild_limit: int = KarmaMember.get_count(ctx.guild.id)
+        limit: int = min(guild_limit, page_count * item_count)
+
+        embed = utils.Discord.create_embed(
+            author=ctx.author,
+            title=title,
+            description=description,
+        )
+
+        for page_number in range(page_count):
+            users = KarmaMember.get_some(
+                ctx.guild.id,
+                board,
+                order,
+                item_count,
+                item_count * page_number,
+            )
+            if not users:
+                break
+
+            page = embed.copy()
+
+            page_title: str
+            if order == BoardOrder.DESC:
+                page_title = _(ctx, "Top {limit}").format(limit=limit)
+            elif order == BoardOrder.ASC:
+                page_title = _(ctx, "Worst {limit}").format(limit=limit)
+
+            page.add_field(
+                name=page_title,
+                value=Karma._create_embed_page(users, ctx.author, ctx.guild, board),
+                inline=False,
+            )
+
+            if ctx.author.id not in [u.user_id for u in users]:
+                page.add_field(
+                    name=_(ctx, "Your score"),
+                    value=Karma._create_embed_page(
+                        [author], ctx.author, ctx.guild, board
+                    ),
+                    inline=False,
+                )
+
+            pages.append(page)
+
+        return pages
+
+    @staticmethod
+    def _create_embed_page(
+        users: List[KarmaMember],
+        author: discord.Member,
+        guild: discord.Guild,
+        board: BoardType,
+    ) -> str:
+        result = []
+        line_template = "`{value:>6}` … {name}"
+        tc = TranslationContext(guild.id, author.id)
+
+        for user in users:
+            member = guild.get_member(user.user_id)
+            if member and member.display_name:
+                name = utils.Text.sanitise(member.display_name, limit=32)
+            else:
+                name = _(tc, "Unknown member")
+
+            if user.user_id == author.id:
+                name = f"**{name}**"
+
+            result.append(
+                line_template.format(
+                    value=getattr(user, board.name),
+                    name=name,
+                )
+            )
+
+        return "\n".join(result)
 
 
 def setup(bot) -> None:

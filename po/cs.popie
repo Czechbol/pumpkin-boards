@@ -26,37 +26,37 @@ msgid Your score
 msgstr Tvoje skóre
 
 msgid User karma
-msgstr
+msgstr Karma uživatele
 
 msgid Karma value
-msgstr
+msgstr Úroveň karmy
 
 msgid Karma given
-msgstr
+msgstr Rozdaná karma
 
 msgid Karma taken
-msgstr
+msgstr Sebraná karma
 
 msgid I can only use Unicode emojis or emojis from this server.
-msgstr
+msgstr Můžou používat jen Unicode emoji nebo emoji z tohoto serveru.
 
 msgid This emoji does not have karma value.
-msgstr
+msgstr Tento emoji nemá karma hodnotu.
 
 msgid Emoji karma
-msgstr
+msgstr Karma emoji
 
 msgid No emoji has karma value on this server.
-msgstr
+msgstr Na tomto serveru nemá žádný emoji karma hodnotu.
 
 msgid Emojis with positive karma
-msgstr
+msgstr Emoji s pozitivní karmou
 
 msgid Emojis with neutral karma
-msgstr
+msgstr Emoji s neutrální karmou
 
 msgid Emojis with negative karma
-msgstr
+msgstr Emoji s negativní karmou
 
 msgid All server emojis have been assigned a karma value.
 msgstr
@@ -111,3 +111,27 @@ msgstr
 
 msgid Every member got {value} karma points
 msgstr
+
+msgid Karma leaderboard
+msgstr Karma (nejlepší)
+
+msgid Karma data not yet available.
+msgstr Karma údaje zatím nejsou dostupné.
+
+msgid Karma loserboard
+msgstr Karma (nejhorší)
+
+msgid Score, ascending
+msgstr Skóre, vzestupně
+
+msgid Karma givingboard
+msgstr Karma (rozdaná)
+
+msgid Karma takingboard
+msgstr Karma (sebraná)
+
+msgid Worst {limit}
+msgstr Nejhorších {limit}
+
+msgid Unknown member
+msgstr Neznámý uživatel
